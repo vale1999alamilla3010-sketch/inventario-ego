@@ -98,16 +98,19 @@
   .toast.err { border-left-color: #d93025; }
   .toast.warn { border-left-color: #fbbc04; }
   @keyframes tfin { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none} }
+  
   .login-banner {
     display: none !important;
     background: white;
+    flex-direction: column;
+    align-items: center;
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 16px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     text-align: center;
   }
-  .login-banner.visible { display: block !important; }
+  .login-banner.visible { display: flex !important; }
   .login-banner h2 { font-size: 1rem; margin-bottom: 6px; color: #111; }
   .login-banner p { font-size: 0.82rem; color: #888; margin-bottom: 16px; }
   .login-banner .user-info { font-size: 0.82rem; color: #555; margin-top: 10px; }
@@ -202,7 +205,6 @@
   </table>
 </div>
 
-<!-- MODAL EDITAR -->
 <div class="overlay" id="ovEditar">
   <div class="modal">
     <h3>Editar cantidad</h3>
@@ -275,6 +277,7 @@ function syncUI(state, label) {
 function setBar(pct) {
   document.getElementById('loadBar').style.width = pct + '%';
 }
+
 const SHEET_ID   = '18nE2mewjHODohS-ocZp1Jd5u8omesGzi-71MQ2np8oY';
 const SHEET_NAME = 'Inventario';
 const CLIENT_ID  = '228818042872-h2vu1bstof2qqs0dqcermvv5lp573v9u.apps.googleusercontent.com';
@@ -285,6 +288,8 @@ const LS_TOKEN   = 'inventario_ego_token';
 let accessToken = null;
 
 function onGoogleLogin(response) {
+  
+  
   tokenClient.requestAccessToken({ prompt: '' });
 }
 
@@ -302,13 +307,14 @@ function initGoogleAuth() {
     }
   });
 
+  
   const savedToken = localStorage.getItem(LS_TOKEN);
   if (savedToken) {
     accessToken = savedToken;
     mostrarApp();
     cargarDatos();
   } else {
-    // Mostrar pantalla de login
+    
     document.getElementById('loginBanner').classList.add('visible');
   }
 }
@@ -334,7 +340,7 @@ function logout() {
   const btn    = document.getElementById('btnLogout');
   app.style.display = 'none';
   app.classList.remove('visible');
-  banner.style.display = 'block';
+  banner.style.display = 'flex';
   banner.classList.add('visible');
   if (btn) btn.style.display = 'none';
   datos = [];
@@ -345,11 +351,12 @@ async function cargarDatos() {
   syncUI('syncing', 'Cargando desde Google Sheets...');
   setBar(30);
   try {
-    // Leer con OAuth token
+    
     if (!accessToken) { toast('Inicia sesión primero', 'warn'); return; }
     const url = `${BASE_URL}/values/${SHEET_NAME}?access_token=${accessToken}&valueRenderOption=FORMATTED_VALUE`;
     const res = await fetch(url);
     if (res.status === 401) {
+      
       accessToken = null;
       localStorage.removeItem(LS_TOKEN);
       tokenClient.requestAccessToken({ prompt: '' });
@@ -393,9 +400,11 @@ async function _guardarSheets() {
       ['Tarjeta', 'Sección', 'Nivel', 'Cantidad', 'Fecha'],
       ...datos.map(i => [i.codigo, i.seccion, i.nivel, i.cantidad, i.fecha || ''])
     ];
+    
     await fetch(`${BASE_URL}/values/${SHEET_NAME}!A1:Z10000:clear`,
       { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
     );
+    
     const res = await fetch(
       `${BASE_URL}/values/${SHEET_NAME}!A1?valueInputOption=RAW`,
       {
@@ -451,7 +460,7 @@ function init() {
   llenar('seccion', SECS); llenar('nivel', NIVS);
   llenar('m-sec', SECS);   llenar('m-niv', NIVS);
   llenarFiltros();
-  // Init Google Auth after GSI loads
+  
   window.addEventListener('load', () => {
     if (typeof google !== 'undefined') initGoogleAuth();
     else setTimeout(initGoogleAuth, 1000);
