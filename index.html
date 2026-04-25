@@ -58,7 +58,7 @@
   #loadBar { position: fixed; top: 0; left: 0; height: 3px; background: #1a73e8; width: 0; transition: width 0.3s; z-index: 999; }
 
   table { width: 100%; min-width: 580px; border-collapse: collapse; font-size: 0.88rem; }
-  th { background: #f8f9fa; padding: 10px 12px; text-align: left; font-size: 0.78rem; color: #555; border-bottom: 2px solid #e0e0e0; cursor: pointer; user-select: none; white-space: nowrap; }
+  th { background: #f8f9fa; padding: 10px 12px; text-align: left; font-size: 0.78rem; color: #555; border-bottom: 2px solid #e0e0e0; cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
   th:hover { color: #1a73e8; }
   th.asc::after { content: ' ↑'; color: #1a73e8; }
   th.desc::after { content: ' ↓'; color: #1a73e8; }
@@ -66,7 +66,7 @@
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #fafafa; }
   th:first-child, td:first-child { position: sticky; left: 0; z-index: 2; background: white; border-right: 1px solid #e0e0e0; }
-  th:first-child { background: #f8f9fa; z-index: 3; }
+  th:first-child { background: #f8f9fa; z-index: 4; }
   tr:hover td:first-child { background: #fafafa; }
   .code { font-family: monospace; font-size: 0.85rem; color: #1a73e8; }
   .qty { font-weight: bold; }
@@ -191,7 +191,7 @@
   </div>
 </div>
 
-<div class="card" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+<div class="card" style="padding:0;overflow:auto;-webkit-overflow-scrolling:touch;max-height:60vh">
   <table>
     <thead><tr>
       <th onclick="sort('codigo')">Tarjeta</th>
@@ -210,7 +210,7 @@
   <div class="modal">
     <h3>Editar cantidad</h3>
     <div class="mfields">
-      <div><label>Código</label><input id="e-cod" readonly style="background:#f5f5f5"></div>
+      <div><label>Nuevo Código</label><input id="e-cod" placeholder="Escanear o escribir..."></div>
       <div><label>Sección</label><input id="e-sec" readonly style="background:#f5f5f5"></div>
       <div><label>Nivel</label><input id="e-niv" readonly style="background:#f5f5f5"></div>
       <div>
@@ -577,18 +577,27 @@ function editar(i) {
   document.getElementById('e-sec').value = item.seccion;
   document.getElementById('e-niv').value = item.nivel;
   document.getElementById('e-qty').value = item.cantidad;
-  document.getElementById('e-actual').textContent = `Cantidad actual: ${item.cantidad}`;
+  document.getElementById('e-actual').textContent = `Sección: ${item.seccion} · Nivel: ${item.nivel} · Cantidad actual: ${item.cantidad}`;
   document.getElementById('ovEditar').classList.add('open');
-  setTimeout(() => document.getElementById('e-qty').select(), 50);
+  setTimeout(() => document.getElementById('e-cod').select(), 50);
 }
 function cerrarEditar() { document.getElementById('ovEditar').classList.remove('open'); eIdx = -1; }
 function confirmarEditar() {
+  const nuevoCod = document.getElementById('e-cod').value.trim();
   const qty = parseInt(document.getElementById('e-qty').value);
+  if (!nuevoCod) return toast('El código no puede estar vacío', 'err');
   if (!qty || qty <= 0) return toast('Cantidad inválida', 'err');
-  const anterior = datos[eIdx].cantidad;
-  datos[eIdx].cantidad = qty;
+  const item = datos[eIdx];
+  const codAnterior = item.codigo;
+  const qtyAnterior = item.cantidad;
+  const codLimpio = limpiar(nuevoCod) || nuevoCod;
+  item.codigo = codLimpio;
+  item.cantidad = qty;
   guardarDatos(); renderizar(); cerrarEditar();
-  toast(`Cantidad actualizada: ${anterior} → ${qty}`);
+  const cambios = [];
+  if (codLimpio !== codAnterior) cambios.push(`código: ${codAnterior} → ${codLimpio}`);
+  if (qty !== qtyAnterior) cambios.push(`cantidad: ${qtyAnterior} → ${qty}`);
+  toast(cambios.length ? `Actualizado: ${cambios.join(', ')}` : 'Sin cambios');
 }
 
 function sort(col) {
