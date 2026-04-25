@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231a73e8'/%3E%3Cpath d='M12 22l20-10 20 10v20l-20 10L12 42z' fill='none' stroke='white' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M32 12v30M12 22l20 10 20-10' stroke='white' stroke-width='3' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M22 17l20 10' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario EGO</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+
+  .card { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+  .form-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .form-row label { font-size: 0.75rem; color: #666; display: block; margin-bottom: 4px; }
+  .form-row input, .form-row select { padding: 8px 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 0.9rem; background: white; outline: none; }
+  .form-row input:focus, .form-row select:focus { border-color: #1a73e8; }
+  .f-code { flex: 1; min-width: 180px; }
+  .f-sec { width: 90px; }
+  .f-niv { width: 90px; }
+  .f-qty { width: 80px; }
+  .f-tipo { width: 210px; }
+  .tipo-btn { padding: 6px 12px; border: 2px solid #ccc; border-radius: 5px; font-size: 0.82rem; cursor: pointer; background: white; color: #555; font-family: Arial, sans-serif; transition: all 0.15s; }
+  .tipo-btn.active-tarjeta { border-color: #1a73e8; background: #e8f0fe; color: #1a73e8; font-weight: bold; }
+  .tipo-btn.active-sub     { border-color: #e37400; background: #fef3e2; color: #e37400; font-weight: bold; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .toolbar-left { display: flex; gap: 8px; flex-wrap: wrap; }
+  .toolbar-right { display: flex; gap: 8px; }
+  input.search, select.filter { padding: 7px 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 0.85rem; outline: none; background: white; }
+  input.search { width: 180px; }
+  input.search:focus, select.filter:focus { border-color: #1a73e8; }
+
+  button { padding: 8px 14px; border: none; border-radius: 5px; font-size: 0.85rem; cursor: pointer; font-family: Arial, sans-serif; }
+  .btn-blue { background: #1a73e8; color: white; } .btn-blue:hover { background: #1558b0; }
+  .btn-green { background: #34a853; color: white; } .btn-green:hover { background: #2a8a43; }
+  .btn-gray { background: #e8eaed; color: #333; } .btn-gray:hover { background: #d2d5db; }
+  .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+  .btn-red { background: transparent; border: 1px solid #d93025; color: #d93025; } .btn-red:hover { background: #d93025; color: white; }
+  .btn-outline { background: transparent; border: 1px solid #ccc; color: #555; } .btn-outline:hover { border-color: #1a73e8; color: #1a73e8; }
+
+  .stats { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat { background: white; border-radius: 8px; padding: 10px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; flex: 1; min-width: 80px; }
+  .stat .n { font-size: 1.5rem; font-weight: bold; color: #1a73e8; }
+  .stat .l { font-size: 0.72rem; color: #888; margin-top: 2px; }
+
+  .header-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .header-row h1 { font-size: 1.3rem; color: #111; }
+  .sync-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; padding: 3px 8px; border-radius: 12px; background: #f1f3f4; color: #666; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .sync-dot.syncing { background: #fbbc04; animation: pulse 0.9s infinite; }
+  .sync-dot.ok { background: #34a853; }
+  .sync-dot.err { background: #d93025; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+  #loadBar { position: fixed; top: 0; left: 0; height: 3px; background: #1a73e8; width: 0; transition: width 0.3s; z-index: 999; }
+
+  table { width: 100%; min-width: 580px; border-collapse: collapse; font-size: 0.88rem; }
+  th { background: #f8f9fa; padding: 10px 12px; text-align: left; font-size: 0.78rem; color: #555; border-bottom: 2px solid #e0e0e0; cursor: pointer; user-select: none; white-space: nowrap; }
+  th:hover { color: #1a73e8; }
+  th.asc::after { content: ' ↑'; color: #1a73e8; }
+  th.desc::after { content: ' ↓'; color: #1a73e8; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  th:first-child, td:first-child { position: sticky; left: 0; z-index: 2; background: white; border-right: 1px solid #e0e0e0; }
+  th:first-child { background: #f8f9fa; z-index: 3; }
+  tr:hover td:first-child { background: #fafafa; }
+  .code { font-family: monospace; font-size: 0.85rem; color: #1a73e8; }
+  .qty { font-weight: bold; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; background: #e8f0fe; color: #1a73e8; }
+  .badge-n { background: #fce8e6; color: #d93025; }
+  .act-row { display: flex; gap: 6px; }
+  .empty { text-align: center; padding: 40px; color: #aaa; font-size: 0.9rem; }
+  .btn-orange { background: transparent; border: 1px solid #e37400; color: #e37400; } .btn-orange:hover { background: #e37400; color: white; }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .modal { background: white; border-radius: 10px; padding: 24px; width: 380px; max-width: 95vw; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+  .modal h3 { font-size: 1rem; margin-bottom: 16px; }
+  .mfields { display: flex; flex-direction: column; gap: 12px; }
+  .mfields label { font-size: 0.75rem; color: #666; display: block; margin-bottom: 4px; }
+  .mfields input, .mfields select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 0.9rem; outline: none; }
+  .mfields input:focus, .mfields select:focus { border-color: #1a73e8; }
+  .mact { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+  .drop-zone { border: 2px dashed #ccc; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; }
+  .drop-zone:hover, .drop-zone.over { border-color: #1a73e8; background: #f0f6ff; }
+  .drop-zone p { font-size: 0.8rem; color: #888; margin-top: 4px; }
+  .mode-row { display: flex; gap: 16px; font-size: 0.82rem; color: #555; margin-top: 8px; }
+  .mode-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #fileInput { display: none; }
+
+  .toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 6px; z-index: 200; }
+  .toast { background: #333; color: white; padding: 10px 16px; border-radius: 6px; font-size: 0.83rem; border-left: 3px solid #34a853; animation: tfin 0.2s ease; min-width: 200px; }
+  .toast.err { border-left-color: #d93025; }
+  .toast.warn { border-left-color: #fbbc04; }
+  @keyframes tfin { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none} }
+  /* Login banner */
+  .login-banner {
+    display: none;
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+  .login-banner.visible { display: block; }
+  .login-banner h2 { font-size: 1rem; margin-bottom: 6px; color: #111; }
+  .login-banner p { font-size: 0.82rem; color: #888; margin-bottom: 16px; }
+  .login-banner .user-info { font-size: 0.82rem; color: #555; margin-top: 10px; }
+  .app-content { display: none; }
+  .app-content.visible { display: block; }
+  #btnLogout { float: right; font-size: 0.75rem; padding: 4px 10px; }
+</style>
+</head>
+<body>
+
+<div id="loadBar"></div>
+
+<!-- LOGIN -->
+<div class="login-banner" id="loginBanner">
+  <h2>Inventario de Tarjetas Reparadas</h2>
+  <p>Inicia sesión con la cuenta <strong>inventario.ego@gmail.com</strong> para continuar</p>
+  <div id="g_id_onload"
+    data-client_id="228818042872-h2vu1bstof2qqs0dqcermvv5lp573v9u.apps.googleusercontent.com"
+    data-callback="onGoogleLogin"
+    data-auto_select="true">
+  </div>
+  <div class="g_id_signin"
+    data-type="standard"
+    data-size="large"
+    data-theme="outline"
+    data-text="sign_in_with"
+    data-shape="rectangular"
+    data-logo_alignment="left">
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app-content" id="appContent">
+
+<div class="header-row">
+  <h1>Inventario de Tarjetas Reparadas</h1>
+  <button class="btn-outline btn-sm" id="btnLogout" onclick="logout()" style="display:none">Cerrar sesión</button>
+  <span class="sync-badge">
+    <span class="sync-dot syncing" id="syncDot"></span>
+    <span id="syncLabel">Cargando...</span>
+  </span>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n" id="s-reg">—</div><div class="l">Registros</div></div>
+  <div class="stat"><div class="n" id="s-pzs">—</div><div class="l">Piezas</div></div>
+  <div class="stat"><div class="n" id="s-sec">—</div><div class="l">Secciones</div></div>
+</div>
+
+<div class="card">
+  <div class="form-row">
+    <div class="f-tipo">
+      <label>Tipo de pieza</label>
+      <div style="display:flex;gap:6px;margin-top:2px">
+        <button id="btn-tarjeta" class="tipo-btn active-tarjeta" onclick="setTipo('tarjeta')">Tarjeta</button>
+        <button id="btn-sub"     class="tipo-btn"                onclick="setTipo('sub')">Subensamble</button>
+      </div>
+    </div>
+    <div class="f-code">
+      <label>Código</label>
+      <input type="text" id="scanner" placeholder="Escanear o escribir..." autofocus style="width:100%">
+    </div>
+    <div class="f-sec"><label>Sección</label><select id="seccion" style="width:100%"></select></div>
+    <div class="f-niv"><label>Nivel</label><select id="nivel" style="width:100%"></select></div>
+    <div class="f-qty"><label>Cantidad</label><input type="number" id="cantidad" value="1" min="1" style="width:100%"></div>
+    <button class="btn-blue" onclick="agregar()">Agregar</button>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <input type="text" class="search" id="busqueda" placeholder="Buscar código..." oninput="renderizar()">
+    <select class="filter" id="f-sec" onchange="renderizar()"><option value="">Todas secciones</option></select>
+    <select class="filter" id="f-niv" onchange="renderizar()"><option value="">Todos niveles</option></select>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn-gray" onclick="cargarDatos()">Actualizar</button>
+    <button class="btn-gray" onclick="abrirImportar()">Cargar Excel</button>
+    <button class="btn-green" onclick="exportar()">Exportar Excel</button>
+  </div>
+</div>
+
+<div class="card" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <table>
+    <thead><tr>
+      <th onclick="sort('codigo')">Tarjeta</th>
+      <th onclick="sort('seccion')">Sección</th>
+      <th onclick="sort('nivel')">Nivel</th>
+      <th onclick="sort('cantidad')">Cantidad</th>
+      <th onclick="sort('fecha')">Fecha</th>
+      <th>Acciones</th>
+    </tr></thead>
+    <tbody id="tabla"></tbody>
+  </table>
+</div>
+
+<!-- MODAL EDITAR -->
+<div class="overlay" id="ovEditar">
+  <div class="modal">
+    <h3>Editar cantidad</h3>
+    <div class="mfields">
+      <div><label>Código</label><input id="e-cod" readonly style="background:#f5f5f5"></div>
+      <div><label>Sección</label><input id="e-sec" readonly style="background:#f5f5f5"></div>
+      <div><label>Nivel</label><input id="e-niv" readonly style="background:#f5f5f5"></div>
+      <div>
+        <label>Nueva cantidad</label>
+        <input type="number" id="e-qty" min="1">
+        <div id="e-actual" style="font-size:0.75rem;color:#888;margin-top:4px"></div>
+      </div>
+    </div>
+    <div class="mact">
+      <button class="btn-outline" onclick="cerrarEditar()">Cancelar</button>
+      <button class="btn-blue" onclick="confirmarEditar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ovMover">
+  <div class="modal">
+    <h3>Mover piezas</h3>
+    <div class="mfields">
+      <div><label>Código</label><input id="m-cod" readonly style="background:#f5f5f5"></div>
+      <div><label>Nueva Sección</label><select id="m-sec"></select></div>
+      <div><label>Nuevo Nivel</label><select id="m-niv"></select></div>
+      <div><label>Cantidad a mover</label><input type="number" id="m-qty" min="1"></div>
+    </div>
+    <div class="mact">
+      <button class="btn-outline" onclick="cerrarMover()">Cancelar</button>
+      <button class="btn-blue" onclick="confirmarMover()">Mover</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ovImportar">
+  <div class="modal">
+    <h3>Cargar desde Excel</h3>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div style="font-size:1.8rem">📊</div>
+      <strong>Clic o arrastra tu archivo .xlsx</strong>
+      <p>Columnas: Tarjeta · Sección · Nivel · Cantidad · Fecha (opcional)</p>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="cargarExcel(event)">
+    <div style="font-size:0.8rem;color:#555;margin-bottom:4px">Modo:</div>
+    <div class="mode-row">
+      <label><input type="radio" name="modo" value="merge" checked> Combinar</label>
+      <label><input type="radio" name="modo" value="replace"> Reemplazar todo</label>
+    </div>
+    <div class="mact"><button class="btn-outline" onclick="cerrarImportar()">Cancelar</button></div>
+  </div>
+</div>
+
+</div><!-- /app-content -->
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+const SECS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+const NIVS = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20'];
+
+let sCol = 'seccion', sDir = 1, mIdx = -1;
+let datos = [];
+
+function syncUI(state, label) {
+  document.getElementById('syncDot').className = 'sync-dot ' + state;
+  document.getElementById('syncLabel').textContent = label;
+}
+function setBar(pct) {
+  document.getElementById('loadBar').style.width = pct + '%';
+}
+
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+const SHEET_ID   = '18nE2mewjHODohS-ocZp1Jd5u8omesGzi-71MQ2np8oY';
+const SHEET_NAME = 'Inventario';
+const API_KEY    = 'AIzaSyBw7bWGw2MzM5ZyVBNalzY-m8R4zhD8ruw';
+const CLIENT_ID  = '228818042872-h2vu1bstof2qqs0dqcermvv5lp573v9u.apps.googleusercontent.com';
+const BASE_URL   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
+const LS_KEY     = 'inventario_ego';
+const LS_TOKEN   = 'inventario_ego_token';
+
+let accessToken = null;
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function onGoogleLogin(response) {
+  // response.credential es el ID token — lo usamos para obtener access token
+  // Pedimos access token via token client
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+
+let tokenClient;
+function initGoogleAuth() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    callback: async (resp) => {
+      if (resp.error) { toast('Error de autenticación: ' + resp.error, 'err'); return; }
+      accessToken = resp.access_token;
+      try { localStorage.setItem(LS_TOKEN, accessToken); } catch(_){}
+      mostrarApp();
+      await cargarDatos();
+    }
+  });
+
+  // Intentar restaurar sesión previa
+  const savedToken = localStorage.getItem(LS_TOKEN);
+  if (savedToken) {
+    accessToken = savedToken;
+    mostrarApp();
+    cargarDatos();
+  } else {
+    // Mostrar pantalla de login
+    document.getElementById('loginBanner').classList.add('visible');
+  }
+}
+
+function mostrarApp() {
+  document.getElementById('loginBanner').classList.remove('visible');
+  document.getElementById('appContent').classList.add('visible');
+  document.getElementById('btnLogout').style.display = 'inline-block';
+}
+
+function logout() {
+  accessToken = null;
+  try { localStorage.removeItem(LS_TOKEN); } catch(_){}
+  google.accounts.oauth2.revoke(accessToken, () => {});
+  document.getElementById('appContent').classList.remove('visible');
+  document.getElementById('loginBanner').classList.add('visible');
+  document.getElementById('btnLogout').style.display = 'none';
+  datos = [];
+}
+
+// ── SHEETS: LEER ─────────────────────────────────────────────────────────────
+async function cargarDatos() {
+  syncUI('syncing', 'Cargando desde Google Sheets...');
+  setBar(30);
+  try {
+    // Leer con API Key (lectura pública) o con token si está disponible
+    const authParam = accessToken
+      ? `access_token=${accessToken}`
+      : `key=${API_KEY}`;
+    const url = `${BASE_URL}/values/${SHEET_NAME}?${authParam}&valueRenderOption=FORMATTED_VALUE`;
+    const res = await fetch(url);
+    if (res.status === 401) {
+      // Token expirado — pedir nuevo
+      accessToken = null;
+      localStorage.removeItem(LS_TOKEN);
+      tokenClient.requestAccessToken({ prompt: '' });
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const rows = json.values || [];
+    datos = rows.length < 2 ? [] : rows.slice(1).map(r => ({
+      codigo:   String(r[0] || '').trim(),
+      seccion:  String(r[1] || '').trim().toUpperCase(),
+      nivel:    String(r[2] || '').trim(),
+      cantidad: parseInt(r[3]) || 0,
+      fecha:    parsearFecha(r[4] || '')
+    })).filter(r => r.codigo && r.seccion && r.nivel && r.cantidad > 0);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(datos)); } catch(_){}
+    syncUI('ok', `Sincronizado · ${new Date().toLocaleTimeString()}`);
+  } catch(e) {
+    syncUI('warn', 'Sin conexión — datos locales');
+    toast('No se pudo conectar a Sheets', 'warn');
+    try { const raw = localStorage.getItem(LS_KEY); datos = raw ? JSON.parse(raw) : []; } catch(_) { datos = []; }
+  }
+  setBar(100);
+  setTimeout(() => setBar(0), 400);
+  renderizar();
+}
+
+// ── SHEETS: ESCRIBIR ──────────────────────────────────────────────────────────
+let saveTimer = null;
+function guardarDatos() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(datos)); } catch(_){}
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => _guardarSheets(), 600);
+}
+
+async function _guardarSheets() {
+  if (!accessToken) { toast('Inicia sesión para guardar en Sheets', 'warn'); return; }
+  syncUI('syncing', 'Guardando en Google Sheets...');
+  setBar(50);
+  try {
+    const values = [
+      ['Tarjeta', 'Sección', 'Nivel', 'Cantidad', 'Fecha'],
+      ...datos.map(i => [i.codigo, i.seccion, i.nivel, i.cantidad, i.fecha || ''])
+    ];
+    // Limpiar
+    await fetch(`${BASE_URL}/values/${SHEET_NAME}!A1:Z10000:clear`,
+      { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+    );
+    // Escribir
+    const res = await fetch(
+      `${BASE_URL}/values/${SHEET_NAME}!A1?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ range: `${SHEET_NAME}!A1`, majorDimension: 'ROWS', values })
+      }
+    );
+    if (res.status === 401) {
+      accessToken = null;
+      localStorage.removeItem(LS_TOKEN);
+      toast('Sesión expirada, inicia sesión de nuevo', 'warn');
+      logout();
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'HTTP ' + res.status);
+    }
+    syncUI('ok', `Guardado · ${new Date().toLocaleTimeString()}`);
+  } catch(e) {
+    syncUI('err', 'Error al guardar');
+    toast('No se guardó en Sheets: ' + e.message, 'err');
+  }
+  setBar(100);
+  setTimeout(() => setBar(0), 400);
+}
+
+function fechaHoy() {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = d.getFullYear();
+  return `${dd}/${mm}/${yy}`;
+}
+
+function parsearFecha(val) {
+  if (!val && val !== 0) return '';
+  const s = String(val).trim();
+
+  if (/^\d+$/.test(s) && Number(s) > 1000) {
+    const d = new Date(Date.UTC(1900, 0, 1) + (Number(s) - 2) * 86400000);
+    return String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0') + '/' + d.getUTCFullYear();
+  }
+
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[3] + '/' + iso[2] + '/' + iso[1];
+
+  return s;
+}
+
+function init() {
+  llenar('seccion', SECS); llenar('nivel', NIVS);
+  llenar('m-sec', SECS);   llenar('m-niv', NIVS);
+  llenarFiltros();
+  // Init Google Auth after GSI loads
+  window.addEventListener('load', () => {
+    if (typeof google !== 'undefined') initGoogleAuth();
+    else setTimeout(initGoogleAuth, 1000);
+  });
+
+  const scannerEl = document.getElementById('scanner');
+
+  scannerEl.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const raw = scannerEl.value.trim();
+    if (!raw) return;
+    document.getElementById('seccion').focus();
+  });
+
+  document.getElementById('seccion').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('nivel').focus(); }
+  });
+  document.getElementById('nivel').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('cantidad').focus(); }
+  });
+  document.getElementById('cantidad').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); agregar(); }
+  });
+
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); if (e.dataTransfer.files[0]) procesar(e.dataTransfer.files[0]); });
+  setInterval(() => { if (accessToken) cargarDatos(); }, 3600000);
+}
+
+function llenar(id, arr, sel = '') {
+  const el = document.getElementById(id); if (!el) return;
+  const prev = sel || el.value;
+  el.innerHTML = arr.map(v => `<option value="${v}"${prev===v?' selected':''}>${v}</option>`).join('');
+}
+function llenarFiltros() {
+  const fs = document.getElementById('f-sec'), fn = document.getElementById('f-niv');
+  const vs = fs.value, vn = fn.value;
+  fs.innerHTML = '<option value="">Todas secciones</option>' + SECS.map(s => `<option value="${s}"${vs===s?' selected':''}>${s}</option>`).join('');
+  fn.innerHTML = '<option value="">Todos niveles</option>'   + NIVS.map(n => `<option value="${n}"${vn===n?' selected':''}>${n}</option>`).join('');
+}
+let tipoActual = 'tarjeta';
+
+function setTipo(t) {
+  tipoActual = t;
+  document.getElementById('btn-tarjeta').className = 'tipo-btn' + (t==='tarjeta' ? ' active-tarjeta' : '');
+  document.getElementById('btn-sub').className     = 'tipo-btn' + (t==='sub'     ? ' active-sub'     : '');
+  document.getElementById('scanner').focus();
+}
+
+function limpiar(raw) {
+  const d = raw.replace(/\D/g,'').replace(/^0+/,'');
+  if (tipoActual === 'sub') {
+    if (d.length < 8) return null;
+    return d.substring(0, 8);
+  } else {
+    if (d.length < 10) return null;
+    return d.substring(0, 10);
+  }
+}
+
+function agregar() {
+  const raw = document.getElementById('scanner').value.trim();
+  const sec = document.getElementById('seccion').value;
+  const niv = document.getElementById('nivel').value;
+  const qty = parseInt(document.getElementById('cantidad').value) || 0;
+  const cod = limpiar(raw);
+  if (!cod) return toast('Código inválido (mín. 10 dígitos)', 'err');
+  if (qty <= 0) return toast('Cantidad inválida', 'err');
+  const hoy = fechaHoy();
+  const ex = datos.find(i => i.codigo===cod && i.seccion===sec && i.nivel===niv);
+  if (ex) { ex.cantidad += qty; toast(`+${qty} unidades en ${sec}-${niv}`); }
+  else    { datos.push({codigo:cod, seccion:sec, nivel:niv, cantidad:qty, fecha:hoy}); toast('Registro agregado'); }
+  guardarDatos(); renderizar();
+  document.getElementById('scanner').value = '';
+  document.getElementById('cantidad').value = '1';
+  document.getElementById('scanner').focus();
+}
+
+async function eliminar(i) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  datos.splice(i, 1);
+  guardarDatos(); renderizar(); toast('Eliminado', 'warn');
+}
+
+function mover(i) {
+  mIdx = i;
+  const item = datos[i];
+  document.getElementById('m-cod').value = item.codigo;
+  llenar('m-sec', SECS, item.seccion);
+  llenar('m-niv', NIVS, item.nivel);
+  document.getElementById('m-qty').value = item.cantidad;
+  document.getElementById('m-qty').max   = item.cantidad;
+  document.getElementById('ovMover').classList.add('open');
+}
+function cerrarMover() { document.getElementById('ovMover').classList.remove('open'); mIdx = -1; }
+
+function confirmarMover() {
+  const item = datos[mIdx];
+  const ns  = document.getElementById('m-sec').value;
+  const nn  = document.getElementById('m-niv').value;
+  const qty = parseInt(document.getElementById('m-qty').value);
+  if (!qty || qty <= 0 || qty > item.cantidad) return toast('Cantidad inválida', 'err');
+  if (ns===item.seccion && nn===item.nivel) return toast('Misma ubicación', 'warn');
+  item.cantidad -= qty;
+  const dest = datos.find(x => x.codigo===item.codigo && x.seccion===ns && x.nivel===nn);
+  if (dest) { dest.cantidad += qty; }
+  else { datos.push({codigo:item.codigo, seccion:ns, nivel:nn, cantidad:qty, fecha:fechaHoy()}); }
+  if (item.cantidad === 0) datos.splice(mIdx, 1);
+  guardarDatos(); renderizar(); cerrarMover();
+  toast(`Movido: ${qty} piezas → ${ns}-${nn}`);
+}
+
+let eIdx = -1;
+function editar(i) {
+  eIdx = i;
+  const item = datos[i];
+  document.getElementById('e-cod').value = item.codigo;
+  document.getElementById('e-sec').value = item.seccion;
+  document.getElementById('e-niv').value = item.nivel;
+  document.getElementById('e-qty').value = item.cantidad;
+  document.getElementById('e-actual').textContent = `Cantidad actual: ${item.cantidad}`;
+  document.getElementById('ovEditar').classList.add('open');
+  setTimeout(() => document.getElementById('e-qty').select(), 50);
+}
+function cerrarEditar() { document.getElementById('ovEditar').classList.remove('open'); eIdx = -1; }
+function confirmarEditar() {
+  const qty = parseInt(document.getElementById('e-qty').value);
+  if (!qty || qty <= 0) return toast('Cantidad inválida', 'err');
+  const anterior = datos[eIdx].cantidad;
+  datos[eIdx].cantidad = qty;
+  guardarDatos(); renderizar(); cerrarEditar();
+  toast(`Cantidad actualizada: ${anterior} → ${qty}`);
+}
+
+function sort(col) {
+  if (sCol===col) sDir*=-1; else { sCol=col; sDir=1; }
+  renderizar();
+}
+function renderizar() {
+  let d = [...datos];
+  const busq = document.getElementById('busqueda').value.toLowerCase();
+  const fs   = document.getElementById('f-sec').value;
+  const fn   = document.getElementById('f-niv').value;
+  if (busq) d = d.filter(i => i.codigo.toLowerCase().includes(busq));
+  if (fs)   d = d.filter(i => i.seccion === fs);
+  if (fn)   d = d.filter(i => i.nivel   === fn);
+  d.sort((a,b) => {
+    let va=a[sCol]||'', vb=b[sCol]||'';
+    if (sCol==='cantidad'){va=+va;vb=+vb;}
+    if (sCol==='fecha'){
+      const pa=va.split('/'), pb=vb.split('/');
+      va = pa.length===3 ? `${pa[2]}/${pa[1]}/${pa[0]}` : va;
+      vb = pb.length===3 ? `${pb[2]}/${pb[1]}/${pb[0]}` : vb;
+    }
+    return va<vb?-sDir:va>vb?sDir:0;
+  });
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.remove('asc','desc');
+    const map={'Tarjeta':'codigo','Sección':'seccion','Nivel':'nivel','Cantidad':'cantidad','Fecha':'fecha'};
+    if (map[th.textContent.replace(/[↑↓ ]/g,'')] === sCol) th.classList.add(sDir===1?'asc':'desc');
+  });
+  const tbody = document.getElementById('tabla');
+  if (!d.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin registros</td></tr>';
+  } else {
+    tbody.innerHTML = d.map(item => {
+      const oi = datos.findIndex(x => x.codigo===item.codigo && x.seccion===item.seccion && x.nivel===item.nivel);
+      return `<tr>
+        <td class="code">${item.codigo}</td>
+        <td><span class="badge">${item.seccion}</span></td>
+        <td><span class="badge badge-n">${item.nivel}</span></td>
+        <td class="qty">${item.cantidad}</td>
+        <td style="font-size:0.82rem;color:#666">${item.fecha||'—'}</td>
+        <td><div class="act-row">
+          <button class="btn-orange btn-sm" onclick="editar(${oi})">Editar</button>
+          <button class="btn-outline btn-sm" onclick="mover(${oi})">Mover</button>
+          <button class="btn-red btn-sm" onclick="eliminar(${oi})">Eliminar</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('s-reg').textContent = datos.length;
+  document.getElementById('s-pzs').textContent = datos.reduce((s,i)=>s+i.cantidad,0);
+  document.getElementById('s-sec').textContent = new Set(datos.map(i=>i.seccion)).size;
+}
+
+function exportar() {
+  if (!datos.length) return toast('No hay datos para exportar', 'warn');
+  const sorted = [...datos].sort((a,b) => {
+    if (a.seccion < b.seccion) return -1;
+    if (a.seccion > b.seccion) return 1;
+    return (a.nivel||'') < (b.nivel||'') ? -1 : (a.nivel||'') > (b.nivel||'') ? 1 : 0;
+  });
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Tarjeta','Sección','Nivel','Cantidad','Fecha'],
+    ...sorted.map(i=>[i.codigo, i.seccion, i.nivel, i.cantidad, i.fecha||''])
+  ]);
+  ws['!cols'] = [{wch:22},{wch:10},{wch:10},{wch:12},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+  XLSX.writeFile(wb, `Inventario_EGO_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel exportado correctamente');
+}
+function abrirImportar()  { document.getElementById('ovImportar').classList.add('open'); }
+function cerrarImportar() { document.getElementById('ovImportar').classList.remove('open'); document.getElementById('fileInput').value=''; }
+function cargarExcel(e)   { if (e.target.files[0]) procesar(e.target.files[0]); }
+
+function procesar(file) {
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const wb   = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1,defval:''});
+      if (rows.length < 2) return toast('Archivo vacío o sin datos', 'err');
+      const h  = rows[0].map(x=>String(x).toLowerCase().trim());
+      const ic = h.findIndex(x=>x.includes('tarjeta')||x.includes('cod'));
+      const is = h.findIndex(x=>x.includes('secci'));
+      const iv = h.findIndex(x=>x.includes('nivel'));
+      const iq = h.findIndex(x=>x.includes('cantidad')||x.includes('qty'));
+      const ife= h.findIndex(x=>x.includes('fecha'));
+      if ([ic,is,iv,iq].some(x=>x===-1)) return toast('Columnas no reconocidas. Se esperan: Tarjeta, Sección, Nivel, Cantidad', 'err');
+      const modo = document.querySelector('input[name="modo"]:checked').value;
+      let base = modo==='replace' ? [] : [...datos];
+      let ag=0, up=0, err=0;
+      for (let i=1; i<rows.length; i++) {
+        const row=rows[i];
+        const raw=String(row[ic]||'').trim(), sec=String(row[is]||'').trim().toUpperCase();
+        const niv=String(row[iv]||'').trim(), qty=parseInt(row[iq])||0;
+        const fecha = ife>=0 ? parsearFecha(row[ife]) : '';
+        if (!raw||!sec||!niv||qty<=0){err++;continue;}
+        const cod=limpiar(raw)||raw;
+        const ex=base.find(x=>x.codigo===cod&&x.seccion===sec&&x.nivel===niv);
+        if(ex){ex.cantidad+=qty;up++;}
+        else{base.push({codigo:cod,seccion:sec,nivel:niv,cantidad:qty,fecha:fecha||fechaHoy()});ag++;}
+      }
+      datos=base; guardarDatos(); renderizar(); cerrarImportar();
+      toast(`${ag} nuevos, ${up} actualizados${err?`, ${err} omitidos`:''} — sincronizando con Sheets...`);
+    } catch(e) { toast('Error al leer el archivo: '+e.message,'err'); }
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function toast(msg, type='ok') {
+  const el=document.createElement('div');
+  el.className='toast'+(type==='err'?' err':type==='warn'?' warn':'');
+  el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+init();
+</script>
+</body>
+</html>
