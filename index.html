@@ -579,7 +579,7 @@ function editar(i) {
   document.getElementById('e-qty').value = item.cantidad;
   document.getElementById('e-actual').textContent = `Sección: ${item.seccion} · Nivel: ${item.nivel} · Cantidad actual: ${item.cantidad}`;
   document.getElementById('ovEditar').classList.add('open');
-  setTimeout(() => document.getElementById('e-cod').select(), 50);
+  setTimeout(() => document.getElementById('e-qty').select(), 50);
 }
 function cerrarEditar() { document.getElementById('ovEditar').classList.remove('open'); eIdx = -1; }
 function confirmarEditar() {
