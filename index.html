@@ -282,7 +282,6 @@ function setBar(pct) {
 // ── CONFIG ───────────────────────────────────────────────────────────────────
 const SHEET_ID   = '18nE2mewjHODohS-ocZp1Jd5u8omesGzi-71MQ2np8oY';
 const SHEET_NAME = 'Inventario';
-const API_KEY    = 'AIzaSyBw7bWGw2MzM5ZyVBNalzY-m8R4zhD8ruw';
 const CLIENT_ID  = '228818042872-h2vu1bstof2qqs0dqcermvv5lp573v9u.apps.googleusercontent.com';
 const BASE_URL   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
 const LS_KEY     = 'inventario_ego';
@@ -344,11 +343,9 @@ async function cargarDatos() {
   syncUI('syncing', 'Cargando desde Google Sheets...');
   setBar(30);
   try {
-    // Leer con API Key (lectura pública) o con token si está disponible
-    const authParam = accessToken
-      ? `access_token=${accessToken}`
-      : `key=${API_KEY}`;
-    const url = `${BASE_URL}/values/${SHEET_NAME}?${authParam}&valueRenderOption=FORMATTED_VALUE`;
+    // Leer con OAuth token
+    if (!accessToken) { toast('Inicia sesión primero', 'warn'); return; }
+    const url = `${BASE_URL}/values/${SHEET_NAME}?access_token=${accessToken}&valueRenderOption=FORMATTED_VALUE`;
     const res = await fetch(url);
     if (res.status === 401) {
       // Token expirado — pedir nuevo
