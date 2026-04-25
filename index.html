@@ -98,9 +98,8 @@
   .toast.err { border-left-color: #d93025; }
   .toast.warn { border-left-color: #fbbc04; }
   @keyframes tfin { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none} }
-  /* Login banner */
   .login-banner {
-    display: none;
+    display: none !important;
     background: white;
     border-radius: 8px;
     padding: 24px;
@@ -108,21 +107,19 @@
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     text-align: center;
   }
-  .login-banner.visible { display: block; }
+  .login-banner.visible { display: block !important; }
   .login-banner h2 { font-size: 1rem; margin-bottom: 6px; color: #111; }
   .login-banner p { font-size: 0.82rem; color: #888; margin-bottom: 16px; }
   .login-banner .user-info { font-size: 0.82rem; color: #555; margin-top: 10px; }
   .app-content { display: none; }
   .app-content.visible { display: block; }
   #btnLogout { float: right; font-size: 0.75rem; padding: 4px 10px; }
-  .login-banner { display: flex; flex-direction: column; align-items: center; }
 </style>
 </head>
 <body>
 
 <div id="loadBar"></div>
 
-<!-- LOGIN -->
 <div class="login-banner" id="loginBanner">
   <h2>Inventario de Tarjetas Reparadas</h2>
   <p>Inicia sesión con la cuenta <strong>inventario.ego@gmail.com</strong> para continuar</p>
@@ -141,7 +138,6 @@
   </div>
 </div>
 
-<!-- APP -->
 <div class="app-content" id="appContent">
 
 <div class="header-row">
@@ -261,7 +257,7 @@
   </div>
 </div>
 
-</div><!-- /app-content -->
+</div>
 
 <div class="toasts" id="toasts"></div>
 
@@ -279,8 +275,6 @@ function syncUI(state, label) {
 function setBar(pct) {
   document.getElementById('loadBar').style.width = pct + '%';
 }
-
-// ── CONFIG ───────────────────────────────────────────────────────────────────
 const SHEET_ID   = '18nE2mewjHODohS-ocZp1Jd5u8omesGzi-71MQ2np8oY';
 const SHEET_NAME = 'Inventario';
 const CLIENT_ID  = '228818042872-h2vu1bstof2qqs0dqcermvv5lp573v9u.apps.googleusercontent.com';
@@ -290,10 +284,7 @@ const LS_TOKEN   = 'inventario_ego_token';
 
 let accessToken = null;
 
-// ── AUTH ──────────────────────────────────────────────────────────────────────
 function onGoogleLogin(response) {
-  // response.credential es el ID token — lo usamos para obtener access token
-  // Pedimos access token via token client
   tokenClient.requestAccessToken({ prompt: '' });
 }
 
@@ -311,7 +302,6 @@ function initGoogleAuth() {
     }
   });
 
-  // Intentar restaurar sesión previa
   const savedToken = localStorage.getItem(LS_TOKEN);
   if (savedToken) {
     accessToken = savedToken;
@@ -324,22 +314,33 @@ function initGoogleAuth() {
 }
 
 function mostrarApp() {
-  document.getElementById('loginBanner').classList.remove('visible');
-  document.getElementById('appContent').classList.add('visible');
-  document.getElementById('btnLogout').style.display = 'inline-block';
+  const banner = document.getElementById('loginBanner');
+  const app    = document.getElementById('appContent');
+  const btn    = document.getElementById('btnLogout');
+  banner.style.display = 'none';
+  banner.classList.remove('visible');
+  app.style.display = 'block';
+  app.classList.add('visible');
+  if (btn) btn.style.display = 'inline-block';
 }
 
 function logout() {
+  const token = accessToken;
   accessToken = null;
   try { localStorage.removeItem(LS_TOKEN); } catch(_){}
-  google.accounts.oauth2.revoke(accessToken, () => {});
-  document.getElementById('appContent').classList.remove('visible');
-  document.getElementById('loginBanner').classList.add('visible');
-  document.getElementById('btnLogout').style.display = 'none';
+  try { google.accounts.oauth2.revoke(token, () => {}); } catch(_){}
+  const app    = document.getElementById('appContent');
+  const banner = document.getElementById('loginBanner');
+  const btn    = document.getElementById('btnLogout');
+  app.style.display = 'none';
+  app.classList.remove('visible');
+  banner.style.display = 'block';
+  banner.classList.add('visible');
+  if (btn) btn.style.display = 'none';
   datos = [];
+  renderizar();
 }
 
-// ── SHEETS: LEER ─────────────────────────────────────────────────────────────
 async function cargarDatos() {
   syncUI('syncing', 'Cargando desde Google Sheets...');
   setBar(30);
@@ -349,7 +350,6 @@ async function cargarDatos() {
     const url = `${BASE_URL}/values/${SHEET_NAME}?access_token=${accessToken}&valueRenderOption=FORMATTED_VALUE`;
     const res = await fetch(url);
     if (res.status === 401) {
-      // Token expirado — pedir nuevo
       accessToken = null;
       localStorage.removeItem(LS_TOKEN);
       tokenClient.requestAccessToken({ prompt: '' });
@@ -377,7 +377,6 @@ async function cargarDatos() {
   renderizar();
 }
 
-// ── SHEETS: ESCRIBIR ──────────────────────────────────────────────────────────
 let saveTimer = null;
 function guardarDatos() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(datos)); } catch(_){}
@@ -394,11 +393,9 @@ async function _guardarSheets() {
       ['Tarjeta', 'Sección', 'Nivel', 'Cantidad', 'Fecha'],
       ...datos.map(i => [i.codigo, i.seccion, i.nivel, i.cantidad, i.fecha || ''])
     ];
-    // Limpiar
     await fetch(`${BASE_URL}/values/${SHEET_NAME}!A1:Z10000:clear`,
       { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
     );
-    // Escribir
     const res = await fetch(
       `${BASE_URL}/values/${SHEET_NAME}!A1?valueInputOption=RAW`,
       {
@@ -580,7 +577,7 @@ function editar(i) {
   document.getElementById('e-qty').value = item.cantidad;
   document.getElementById('e-actual').textContent = `Sección: ${item.seccion} · Nivel: ${item.nivel} · Cantidad actual: ${item.cantidad}`;
   document.getElementById('ovEditar').classList.add('open');
-  setTimeout(() => document.getElementById('e-qty').select(), 50);
+  setTimeout(() => document.getElementById('e-cod').select(), 50);
 }
 function cerrarEditar() { document.getElementById('ovEditar').classList.remove('open'); eIdx = -1; }
 function confirmarEditar() {
